@@ -1,0 +1,210 @@
+import re, urllib, urllib2, cookielib
+
+VIDEO_PREFIX = "/video/aljazeera"
+
+DEVELOPER_KEY = 'AI39si7PodNU93CVDU6kxh3-m2R9hkwqoVrfijDMr0L85J94ZrJFlimNxzFA9cSky9jCSHz9epJdps8yqHu1wb743d_SfSCRWA'
+
+YOUTUBE_VIDEO_DETAILS = 'http://gdata.youtube.com/feeds/api/videos/%s?v=2&alt=jsonc'
+
+YOUTUBE_VIDEO_PAGE = 'http://www.youtube.com/watch?v=%s'
+
+YOUTUBE_QUERY = "http://gdata.youtube.com/feeds/api/videos?q=%s&author=aljazeeraenglish&v=2&prettyprint=true&orderby=updated"
+
+YOUTUBE_FEEDS = "http://gdata.youtube.com/feeds/api/videos/-/%s?v=2&author=AljazeeraEnglish&prettyprint=true&orderby=updated"
+
+YOUTUBE_VIDEO_FORMATS = ['Standard', 'Medium', 'High', '720p', '1080p']
+YOUTUBE_FMT = [34, 18, 35, 22, 37]
+USER_AGENT = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.12) Gecko/20101026 Firefox/3.6.12'
+
+YT_NAMESPACE = 'http://gdata.youtube.com/schemas/2007'
+
+NEWSTAG = ['africanews','americasnews','asia-pacificnews','asianews','europenews','middleeastnews','sportsnews']
+
+PROGTAG= ['faultlines','rizkhan','oneonone','insidestory','101east','empireprog','witnessprog','countingcost','listeningpost','insideiraq','arabstreet','frostworld','fps','peoplepower']
+
+#BC_PLAYER_ID = '751182905001'
+#BC_PUBLISHER_ID = '665003303001'
+#BC_LIVEVIDEO_ID = '747084146001'
+
+BASEURL = "http://english.aljazeera.net"
+VIDEOURL = BASEURL+"/video/"
+
+LIVEURL = BASEURL+"/watch_now"
+
+
+NAME = L('Title')
+
+ART  = 'art-default.jpg'
+ICON = 'icon-default.png'
+SEARCH = 'icon-search.png'
+
+####################################################################################################
+
+def Start():
+
+    Plugin.AddPrefixHandler(VIDEO_PREFIX, VideoMainMenu, NAME, ICON, ART)
+
+    Plugin.AddViewGroup("InfoList", viewMode="InfoList", mediaType="items")
+    Plugin.AddViewGroup("List", viewMode="List", mediaType="items")
+    
+    MediaContainer.title1 = NAME
+    MediaContainer.viewGroup = "List"
+    MediaContainer.art = R(ART)
+    RTMPVideoItem.thumb = R(ICON)
+    DirectoryItem.thumb = R(ICON)
+    VideoItem.thumb = R(ICON)
+    
+    HTTP.CacheTime = CACHE_1HOUR
+
+def VideoMainMenu():
+
+    dir = MediaContainer(viewGroup="List")
+#    dir.Append(Function(DirectoryItem(LiveMenu,L('Live'), subtitle=L('Live'))))
+    dir.Append(RTMPVideoItem('rtmp://aljazeeraflashlivefs.fplive.net/aljazeeraflashlive-live',clip='aljazeera_en_veryhigh',live='true',width='680',title="Live"))
+    dir.Append(Function(DirectoryItem(NewsMenu,L('News and Clips'), subtitle=L('News and Clips'))))
+    dir.Append(Function(DirectoryItem(ProgMenu,L('Programmes'), subtitle=L('Programmes'))))
+    dir.Append(Function(InputDirectoryItem(Search,"Search ...","",thumb=R(SEARCH),art=R(ART))))
+    return dir
+
+def LiveMenu(sender):
+#for now
+    dir = MediaContainer(viewGroup="List")
+    
+#    dir.Append(WebVideoItem(LIVEURL,title="Live SITE CONFIG",summary="summary"))
+#    dir.Append(WebVideoItem("http://link.brightcove.com/services/player/bcpid751182905001?bctid=747084146001",title="Live SITE CONFIG",summary="summary"))
+
+#    dir.Append(WebVideoItem('http://admin.brightcove.com/viewer/us1.24.04.08.2011-01-14072625/federatedVideoUI/BrightcovePlayer.swf?purl=http%3A%2F%2Fenglish.aljazeera.net%2Fwatch_now%2F&%40videoPlayer=747084146001&autoStart=&bgcolor=%23FFFFFF&dynamicStreaming=true&flashID=myExperience747084146001&height=440&isUI=false&isVid=false&playerID=751182905001&playerKey=AQ~~%2CAAAAmtVJIFk~%2CTVGOQ5ZTwJYW4Aj2VxnKEXntSbmcf9ZQ&width=680&autoStart=true',title="Live",summary="summary"))
+#    dir.Append(VideoItem('rtmp://aljazeeraflashlivefs.fplive.net/aljazeeraflashlive-live/aljazeera_en_veryhigh%3FvideoId=747084146001&lineUpId=&pubId=665003303001&playerId=751182905001&affiliateId=',title="Live",summary="summary"))
+    dir.Append(RTMPVideoItem('rtmp://aljazeeraflashlivefs.fplive.net/aljazeeraflashlive-live',clip='aljazeera_en_veryhigh',live='true',width='680',title="Live",summary="summary"))
+#    dir.Append(Function(VideoItem(PlayBCVideo,title="Brightcove Test",summary="summary"),id = 747084146001))
+    return dir
+
+def NewsMenu(sender):
+    dir = MediaContainer(viewGroup="List")
+    for prog in NEWSTAG:
+      infos = HTML.ElementFromURL(VIDEOURL).xpath('//td[@id="mItem_'+prog+'"]')[0]
+      title = infos.text
+      thumb = R(ICON)
+      summary = ''
+     
+      dir.Append(Function(DirectoryItem(ParseFeed,title=title, summary=summary, thumb=Function(Thumb, url=thumb)),url=YOUTUBE_FEEDS%prog))
+    return dir
+
+def ProgMenu(sender):
+    dir = MediaContainer(viewGroup="InfoList")
+    for prog in PROGTAG:
+      infos = HTML.ElementFromURL(VIDEOURL).xpath('//div[@id="mInfo_'+prog+'"]')[0]
+      title = infos.xpath('.//a')[0].text
+      thumb = BASEURL+infos.xpath('.//image')[0].get('src')
+      summary = infos.text_content()
+      
+      dir.Append(Function(DirectoryItem(ParseFeed,title=title, summary=summary, thumb=Function(Thumb, url=thumb)),url=YOUTUBE_FEEDS%prog))
+    return dir
+    
+#def PlayBCVideo(sender, id ):
+#    return Redirect(WebVideoItem( GetBrightCoveVideo(id) ))
+
+#def GetBrightCoveVideo(video_id):
+#  client = RemotingService('http://c.brightcove.com/services/messagebroker/amf?playerKey=AQ~~,AAAAmtVJIFk~,TVGOQ5ZTwJYW4Aj2VxnKEXntSbmcf9ZQ', user_agent='', client_type=3)
+#  service = client.getService('com.brightcove.player.runtime.PlayerMediaFacade')
+#  result = service.findMediaByReferenceId('', BC_PLAYER_ID, video_id, BC_PUBLISHER_ID)
+
+#  return BC_PLAYER % ( int(result['id']) )
+
+def GetSummary(videoid):
+  try:
+    details = JSON.ObjectFromURL(YOUTUBE_VIDEO_DETAILS%videoid)
+    return str(details['entry']['media$group']['media$description']['$t'])
+  except:
+    return ''
+    
+def Thumb(url):
+  try:
+    data = HTTP.Request(url, cacheTime=CACHE_1WEEK).content
+    return DataObject(data, 'image/jpeg')
+  except:
+    return Redirect(R(ICON))
+
+def ParseFeed(sender=None, url=''):
+  dir = MediaContainer(viewGroup='InfoList', httpCookies=HTTP.GetCookiesForURL('http://www.youtube.com/'))
+
+  if url.find('?') > 0:
+    url = url + '&alt=json'
+  else:
+    url = url + '?alt=json'
+ 
+  Log(url)
+ 
+  rawfeed = JSON.ObjectFromURL(url, encoding='utf-8')
+  if rawfeed['feed'].has_key('entry'):
+    for video in rawfeed['feed']['entry']:
+      if video.has_key('yt$videoid'):
+        video_id = video['yt$videoid']['$t']
+      else:
+        try:
+          video_page = video['media$group']['media$player'][0]['url']
+        except:
+          video_page = video['media$group']['media$player']['url']
+        video_id = re.search('v=([^&]+)', video_page).group(1)
+      title = video['title']['$t']
+      
+      try:
+        published = Datetime.ParseDate(video['published']['$t']).strftime('%a %b %d, %Y')
+      except: 
+        published = Datetime.ParseDate(video['updated']['$t']).strftime('%a %b %d, %Y')
+      Log(video['published']['$t'])
+      Log(published)
+      try: 
+        summary = video['content']['$t']
+      except:
+        summary = video['media$group']['media$description']['$t']
+     
+      duration = int(video['media$group']['yt$duration']['seconds']) * 1000
+      
+      try:
+        rating = float(video['gd$rating']['average']) * 2
+      except:
+        rating = None
+      
+      thumb = video['media$group']['media$thumbnail'][0]['url']
+      
+      dir.Append(Function(VideoItem(PlayVideo, title=title, subtitle=published, summary=summary, duration=duration, rating=rating, thumb=Function(Thumb, url=thumb)), video_id=video_id))
+
+  if len(dir) == 0:
+    return MessageContainer(L('Error'), L('This query did not return any result'))
+  else:
+    return dir
+   
+def Search(sender, query=''):
+  dir = MediaContainer()
+  dir = ParseFeed(url=YOUTUBE_QUERY % (String.Quote(query, usePlus=False)))
+  return dir
+   
+def PlayVideo(sender, video_id):
+  yt_page = HTTP.Request(YOUTUBE_VIDEO_PAGE % (video_id), cacheTime=1).content
+
+  fmt_url_map = re.findall('"fmt_url_map".+?"([^"]+)', yt_page)[0]
+  fmt_url_map = fmt_url_map.replace('\/', '/').split(',')
+
+  fmts = []
+  fmts_info = {}
+
+  for f in fmt_url_map:
+    (fmt, url) = f.split('|')
+    fmts.append(fmt)
+    fmts_info[str(fmt)] = url
+
+  index = YOUTUBE_VIDEO_FORMATS.index(Prefs['youtube_fmt'])
+  if YOUTUBE_FMT[index] in fmts:
+    fmt = YOUTUBE_FMT[index]
+  else:
+    for i in reversed( range(0, index+1) ):
+      if str(YOUTUBE_FMT[i]) in fmts:
+        fmt = YOUTUBE_FMT[i]
+        break
+      else:
+        fmt = 5
+
+  url = fmts_info[str(fmt)]
+  Log("  VIDEO URL --> " + url)
+  return Redirect(url)

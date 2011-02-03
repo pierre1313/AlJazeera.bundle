@@ -1,4 +1,4 @@
-import re, urllib, urllib2, cookielib
+import re
 
 VIDEO_PREFIX = "/video/aljazeera"
 
@@ -11,6 +11,7 @@ YOUTUBE_VIDEO_PAGE = 'http://www.youtube.com/watch?v=%s'
 YOUTUBE_QUERY = "http://gdata.youtube.com/feeds/api/videos?q=%s&author=aljazeeraenglish&v=2&prettyprint=true&orderby=updated"
 
 YOUTUBE_FEEDS = "http://gdata.youtube.com/feeds/api/videos/-/%s?v=2&author=AljazeeraEnglish&prettyprint=true&orderby=updated"
+ARABIC_FEED = 'http://gdata.youtube.com/feeds/api/users/aljazeerachannel/uploads?v=2'
 
 YOUTUBE_VIDEO_FORMATS = ['Standard', 'Medium', 'High', '720p', '1080p']
 YOUTUBE_FMT = [34, 18, 35, 22, 37]
@@ -22,15 +23,10 @@ NEWSTAG = ['africanews','americasnews','asia-pacificnews','asianews','europenews
 
 PROGTAG= ['faultlines','rizkhan','oneonone','insidestory','101east','empireprog','witnessprog','countingcost','listeningpost','insideiraq','arabstreet','frostworld','fps','peoplepower']
 
-#BC_PLAYER_ID = '751182905001'
-#BC_PUBLISHER_ID = '665003303001'
-#BC_LIVEVIDEO_ID = '747084146001'
-
 BASEURL = "http://english.aljazeera.net"
 VIDEOURL = BASEURL+"/video/"
 
 LIVEURL = BASEURL+"/watch_now"
-
 
 NAME = L('Title')
 
@@ -59,35 +55,36 @@ def Start():
 def VideoMainMenu():
 
     dir = MediaContainer(viewGroup="List")
-#    dir.Append(Function(DirectoryItem(LiveMenu,L('Live'), subtitle=L('Live'))))
     dir.Append(RTMPVideoItem('rtmp://aljazeeraflashlivefs.fplive.net/aljazeeraflashlive-live',clip='aljazeera_en_veryhigh',live='true',width='680',title="Live"))
     dir.Append(Function(DirectoryItem(NewsMenu,L('News and Clips'), subtitle=L('News and Clips'))))
     dir.Append(Function(DirectoryItem(ProgMenu,L('Programmes'), subtitle=L('Programmes'))))
+    dir.Append(Function(DirectoryItem(ParseFeed,title="In Arabic", summary=""),url=ARABIC_FEED))
     dir.Append(Function(InputDirectoryItem(Search,"Search ...","",thumb=R(SEARCH),art=R(ART))))
     return dir
 
-def LiveMenu(sender):
-#for now
-    dir = MediaContainer(viewGroup="List")
-    
-#    dir.Append(WebVideoItem(LIVEURL,title="Live SITE CONFIG",summary="summary"))
-#    dir.Append(WebVideoItem("http://link.brightcove.com/services/player/bcpid751182905001?bctid=747084146001",title="Live SITE CONFIG",summary="summary"))
-
-#    dir.Append(WebVideoItem('http://admin.brightcove.com/viewer/us1.24.04.08.2011-01-14072625/federatedVideoUI/BrightcovePlayer.swf?purl=http%3A%2F%2Fenglish.aljazeera.net%2Fwatch_now%2F&%40videoPlayer=747084146001&autoStart=&bgcolor=%23FFFFFF&dynamicStreaming=true&flashID=myExperience747084146001&height=440&isUI=false&isVid=false&playerID=751182905001&playerKey=AQ~~%2CAAAAmtVJIFk~%2CTVGOQ5ZTwJYW4Aj2VxnKEXntSbmcf9ZQ&width=680&autoStart=true',title="Live",summary="summary"))
-#    dir.Append(VideoItem('rtmp://aljazeeraflashlivefs.fplive.net/aljazeeraflashlive-live/aljazeera_en_veryhigh%3FvideoId=747084146001&lineUpId=&pubId=665003303001&playerId=751182905001&affiliateId=',title="Live",summary="summary"))
-    dir.Append(RTMPVideoItem('rtmp://aljazeeraflashlivefs.fplive.net/aljazeeraflashlive-live',clip='aljazeera_en_veryhigh',live='true',width='680',title="Live",summary="summary"))
-#    dir.Append(Function(VideoItem(PlayBCVideo,title="Brightcove Test",summary="summary"),id = 747084146001))
-    return dir
-
 def NewsMenu(sender):
-    dir = MediaContainer(viewGroup="List")
+    dir = MediaContainer(viewGroup="List", httpCookies=HTTP.GetCookiesForURL('http://www.youtube.com/'))
+    
+    video = JSON.ObjectFromURL("http://gdata.youtube.com/feeds/api/videos/7l8MhHkBjbk?v=2&alt=jsonc", encoding='utf-8')
+    video_id = video['data']['id']
+    title = video['data']['title']
+    published = Datetime.ParseDate(video['data']['updated']).strftime('%a %b %d, %Y')
+    summary = video['data']['description']     
+    duration = int(video['data']['duration']) * 1000
+    try:
+      rating = float(video['data']['rating']) * 2
+    except:
+      rating = None
+    thumb = video['data']['thumbnail']['sqDefault']
+      
+    dir.Append(Function(VideoItem(PlayVideo, title=title, subtitle=published, summary=summary, duration=duration, rating=rating, thumb=Function(Thumb, url=thumb)), video_id=video_id))
+    
     for prog in NEWSTAG:
       infos = HTML.ElementFromURL(VIDEOURL).xpath('//td[@id="mItem_'+prog+'"]')[0]
       title = infos.text
-      thumb = R(ICON)
       summary = ''
      
-      dir.Append(Function(DirectoryItem(ParseFeed,title=title, summary=summary, thumb=Function(Thumb, url=thumb)),url=YOUTUBE_FEEDS%prog))
+      dir.Append(Function(DirectoryItem(ParseFeed,title=title, summary=summary),url=YOUTUBE_FEEDS%prog))
     return dir
 
 def ProgMenu(sender):
@@ -101,16 +98,6 @@ def ProgMenu(sender):
       dir.Append(Function(DirectoryItem(ParseFeed,title=title, summary=summary, thumb=Function(Thumb, url=thumb)),url=YOUTUBE_FEEDS%prog))
     return dir
     
-#def PlayBCVideo(sender, id ):
-#    return Redirect(WebVideoItem( GetBrightCoveVideo(id) ))
-
-#def GetBrightCoveVideo(video_id):
-#  client = RemotingService('http://c.brightcove.com/services/messagebroker/amf?playerKey=AQ~~,AAAAmtVJIFk~,TVGOQ5ZTwJYW4Aj2VxnKEXntSbmcf9ZQ', user_agent='', client_type=3)
-#  service = client.getService('com.brightcove.player.runtime.PlayerMediaFacade')
-#  result = service.findMediaByReferenceId('', BC_PLAYER_ID, video_id, BC_PUBLISHER_ID)
-
-#  return BC_PLAYER % ( int(result['id']) )
-
 def GetSummary(videoid):
   try:
     details = JSON.ObjectFromURL(YOUTUBE_VIDEO_DETAILS%videoid)
@@ -133,8 +120,6 @@ def ParseFeed(sender=None, url=''):
   else:
     url = url + '?alt=json'
  
-  Log(url)
- 
   rawfeed = JSON.ObjectFromURL(url, encoding='utf-8')
   if rawfeed['feed'].has_key('entry'):
     for video in rawfeed['feed']['entry']:
@@ -152,8 +137,6 @@ def ParseFeed(sender=None, url=''):
         published = Datetime.ParseDate(video['published']['$t']).strftime('%a %b %d, %Y')
       except: 
         published = Datetime.ParseDate(video['updated']['$t']).strftime('%a %b %d, %Y')
-      Log(video['published']['$t'])
-      Log(published)
       try: 
         summary = video['content']['$t']
       except:

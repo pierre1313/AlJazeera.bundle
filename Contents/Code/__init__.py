@@ -50,7 +50,7 @@ def VideoMainMenu():
   dir.Append(Function(DirectoryItem(NewsMenu, title=L('News and Clips'))))
   dir.Append(Function(DirectoryItem(ProgMenu, title=L('Programmes'))))
   dir.Append(Function(DirectoryItem(ParseFeed, title="In Arabic"), url=ARABIC_FEED))
-  dir.Append(Function(InputDirectoryItem(Search, title="Search ...", thumb=R(SEARCH))))
+  dir.Append(Function(InputDirectoryItem(Search, title="Search ...", prompt="Search", thumb=R(SEARCH))))
   return dir
 
 ####################################################################################################

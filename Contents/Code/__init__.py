@@ -1,35 +1,25 @@
 import re
 
-VIDEO_PREFIX = "/video/aljazeera"
-
-DEVELOPER_KEY = 'AI39si7PodNU93CVDU6kxh3-m2R9hkwqoVrfijDMr0L85J94ZrJFlimNxzFA9cSky9jCSHz9epJdps8yqHu1wb743d_SfSCRWA'
+VIDEO_PREFIX = '/video/aljazeera'
 
 YOUTUBE_VIDEO_DETAILS = 'http://gdata.youtube.com/feeds/api/videos/%s?v=2&alt=jsonc'
-
 YOUTUBE_VIDEO_PAGE = 'http://www.youtube.com/watch?v=%s'
 
-YOUTUBE_QUERY = "http://gdata.youtube.com/feeds/api/videos?q=%s&author=aljazeeraenglish&v=2&prettyprint=true&orderby=updated"
-
-YOUTUBE_FEEDS = "http://gdata.youtube.com/feeds/api/videos/-/%s?v=2&author=AljazeeraEnglish&prettyprint=true&orderby=updated"
+YOUTUBE_QUERY = 'http://gdata.youtube.com/feeds/api/videos?q=%s&author=aljazeeraenglish&v=2&prettyprint=true&orderby=updated'
+YOUTUBE_FEEDS = 'http://gdata.youtube.com/feeds/api/videos/-/%s?v=2&author=AljazeeraEnglish&prettyprint=true&orderby=updated'
 ARABIC_FEED = 'http://gdata.youtube.com/feeds/api/users/aljazeerachannel/uploads?v=2'
 
 YOUTUBE_VIDEO_FORMATS = ['Standard', 'Medium', 'High', '720p', '1080p']
 YOUTUBE_FMT = [34, 18, 35, 22, 37]
-USER_AGENT = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.12) Gecko/20101026 Firefox/3.6.12'
-
-YT_NAMESPACE = 'http://gdata.youtube.com/schemas/2007'
 
 NEWSTAG = ['africanews','americasnews','asia-pacificnews','asianews','europenews','middleeastnews','sportsnews']
+PROGTAG = ['faultlines','rizkhan','oneonone','insidestory','101east','empireprog','witnessprog','countingcost','listeningpost','insideiraq','arabstreet','frostworld','fps','peoplepower']
 
-PROGTAG= ['faultlines','rizkhan','oneonone','insidestory','101east','empireprog','witnessprog','countingcost','listeningpost','insideiraq','arabstreet','frostworld','fps','peoplepower']
+BASEURL = 'http://english.aljazeera.net'
+VIDEOURL = BASEURL + '/video/'
+LIVEURL = BASEURL + '/watch_now'
 
-BASEURL = "http://english.aljazeera.net"
-VIDEOURL = BASEURL+"/video/"
-
-LIVEURL = BASEURL+"/watch_now"
-
-NAME = L('Title')
-
+NAME = 'Al Jazeera'
 ART  = 'art-default.jpg'
 ICON = 'icon-default.png'
 SEARCH = 'icon-search.png'
@@ -37,80 +27,91 @@ SEARCH = 'icon-search.png'
 ####################################################################################################
 
 def Start():
+  Plugin.AddPrefixHandler(VIDEO_PREFIX, VideoMainMenu, NAME, ICON, ART)
 
-    Plugin.AddPrefixHandler(VIDEO_PREFIX, VideoMainMenu, NAME, ICON, ART)
+  Plugin.AddViewGroup("InfoList", viewMode="InfoList", mediaType="items")
+  Plugin.AddViewGroup("List", viewMode="List", mediaType="items")
 
-    Plugin.AddViewGroup("InfoList", viewMode="InfoList", mediaType="items")
-    Plugin.AddViewGroup("List", viewMode="List", mediaType="items")
-    
-    MediaContainer.title1 = NAME
-    MediaContainer.viewGroup = "List"
-    MediaContainer.art = R(ART)
-    RTMPVideoItem.thumb = R(ICON)
-    DirectoryItem.thumb = R(ICON)
-    VideoItem.thumb = R(ICON)
-    
-    HTTP.CacheTime = CACHE_1HOUR
+  MediaContainer.title1 = NAME
+  MediaContainer.viewGroup = "List"
+  MediaContainer.art = R(ART)
+  RTMPVideoItem.thumb = R(ICON)
+  DirectoryItem.thumb = R(ICON)
+  VideoItem.thumb = R(ICON)
+
+  HTTP.CacheTime = CACHE_1HOUR
+  HTTP.Headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.13) Gecko/20101203 Firefox/3.6.13'
+
+####################################################################################################
 
 def VideoMainMenu():
+  dir = MediaContainer(viewGroup="List")
+  dir.Append(RTMPVideoItem('rtmp://aljazeeraflashlivefs.fplive.net/aljazeeraflashlive-live', clip='aljazeera_en_veryhigh', live=True, width=680, title="Live"))
+  dir.Append(Function(DirectoryItem(NewsMenu, title=L('News and Clips'))))
+  dir.Append(Function(DirectoryItem(ProgMenu, title=L('Programmes'))))
+  dir.Append(Function(DirectoryItem(ParseFeed, title="In Arabic"), url=ARABIC_FEED))
+  dir.Append(Function(InputDirectoryItem(Search, title="Search ...", thumb=R(SEARCH))))
+  return dir
 
-    dir = MediaContainer(viewGroup="List")
-    dir.Append(RTMPVideoItem('rtmp://aljazeeraflashlivefs.fplive.net/aljazeeraflashlive-live',clip='aljazeera_en_veryhigh',live='true',width='680',title="Live"))
-    dir.Append(Function(DirectoryItem(NewsMenu,L('News and Clips'), subtitle=L('News and Clips'))))
-    dir.Append(Function(DirectoryItem(ProgMenu,L('Programmes'), subtitle=L('Programmes'))))
-    dir.Append(Function(DirectoryItem(ParseFeed,title="In Arabic", summary=""),url=ARABIC_FEED))
-    dir.Append(Function(InputDirectoryItem(Search,"Search ...","",thumb=R(SEARCH),art=R(ART))))
-    return dir
+####################################################################################################
 
 def NewsMenu(sender):
-    dir = MediaContainer(viewGroup="List", httpCookies=HTTP.GetCookiesForURL('http://www.youtube.com/'))
-    
-    video = JSON.ObjectFromURL("http://gdata.youtube.com/feeds/api/videos/7l8MhHkBjbk?v=2&alt=jsonc", encoding='utf-8')
-    video_id = video['data']['id']
-    title = video['data']['title']
-    published = Datetime.ParseDate(video['data']['updated']).strftime('%a %b %d, %Y')
-    summary = video['data']['description']     
-    duration = int(video['data']['duration']) * 1000
-    try:
-      rating = float(video['data']['rating']) * 2
-    except:
-      rating = None
-    thumb = video['data']['thumbnail']['sqDefault']
-      
-    dir.Append(Function(VideoItem(PlayVideo, title=title, subtitle=published, summary=summary, duration=duration, rating=rating, thumb=Function(Thumb, url=thumb)), video_id=video_id))
-    
-    for prog in NEWSTAG:
-      infos = HTML.ElementFromURL(VIDEOURL).xpath('//td[@id="mItem_'+prog+'"]')[0]
-      title = infos.text
-      summary = ''
-     
-      dir.Append(Function(DirectoryItem(ParseFeed,title=title, summary=summary),url=YOUTUBE_FEEDS%prog))
-    return dir
+  dir = MediaContainer(viewGroup="List", httpCookies=HTTP.GetCookiesForURL('http://www.youtube.com/'))
+
+  video = JSON.ObjectFromURL("http://gdata.youtube.com/feeds/api/videos/7l8MhHkBjbk?v=2&alt=jsonc", encoding='utf-8')
+  video_id = video['data']['id']
+  title = video['data']['title']
+  published = Datetime.ParseDate(video['data']['updated']).strftime('%a %b %d, %Y')
+  summary = video['data']['description']     
+  duration = int(video['data']['duration']) * 1000
+  try:
+    rating = float(video['data']['rating']) * 2
+  except:
+    rating = None
+  thumb = video['data']['thumbnail']['sqDefault']
+
+  dir.Append(Function(VideoItem(PlayVideo, title=title, subtitle=published, summary=summary, duration=duration, rating=rating, thumb=Function(Thumb, url=thumb)), video_id=video_id))
+
+  for prog in NEWSTAG:
+    infos = HTML.ElementFromURL(VIDEOURL).xpath('//td[@id="mItem_'+prog+'"]')[0]
+    title = infos.text
+    summary = ''
+
+    dir.Append(Function(DirectoryItem(ParseFeed, title=title, summary=summary), url=YOUTUBE_FEEDS % prog))
+  return dir
+
+####################################################################################################
 
 def ProgMenu(sender):
-    dir = MediaContainer(viewGroup="InfoList")
-    for prog in PROGTAG:
-      infos = HTML.ElementFromURL(VIDEOURL).xpath('//div[@id="mInfo_'+prog+'"]')[0]
-      title = infos.xpath('.//a')[0].text
-      thumb = BASEURL+infos.xpath('.//image')[0].get('src')
-      summary = infos.text_content()
-      
-      dir.Append(Function(DirectoryItem(ParseFeed,title=title, summary=summary, thumb=Function(Thumb, url=thumb)),url=YOUTUBE_FEEDS%prog))
-    return dir
-    
+  dir = MediaContainer(viewGroup="InfoList")
+  for prog in PROGTAG:
+    infos = HTML.ElementFromURL(VIDEOURL).xpath('//div[@id="mInfo_'+prog+'"]')[0]
+    title = infos.xpath('.//a')[0].text
+    thumb = BASEURL+infos.xpath('.//image')[0].get('src')
+    summary = infos.text_content()
+
+    dir.Append(Function(DirectoryItem(ParseFeed, title=title, summary=summary, thumb=Function(Thumb, url=thumb)), url=YOUTUBE_FEEDS % prog))
+  return dir
+
+####################################################################################################
+
 def GetSummary(videoid):
   try:
     details = JSON.ObjectFromURL(YOUTUBE_VIDEO_DETAILS%videoid)
     return str(details['entry']['media$group']['media$description']['$t'])
   except:
     return ''
-    
+
+####################################################################################################
+
 def Thumb(url):
   try:
     data = HTTP.Request(url, cacheTime=CACHE_1WEEK).content
     return DataObject(data, 'image/jpeg')
   except:
     return Redirect(R(ICON))
+
+####################################################################################################
 
 def ParseFeed(sender=None, url=''):
   dir = MediaContainer(viewGroup='InfoList', httpCookies=HTTP.GetCookiesForURL('http://www.youtube.com/'))
@@ -119,7 +120,7 @@ def ParseFeed(sender=None, url=''):
     url = url + '&alt=json'
   else:
     url = url + '?alt=json'
- 
+
   rawfeed = JSON.ObjectFromURL(url, encoding='utf-8')
   if rawfeed['feed'].has_key('entry'):
     for video in rawfeed['feed']['entry']:
@@ -132,7 +133,7 @@ def ParseFeed(sender=None, url=''):
           video_page = video['media$group']['media$player']['url']
         video_id = re.search('v=([^&]+)', video_page).group(1)
       title = video['title']['$t']
-      
+
       try:
         published = Datetime.ParseDate(video['published']['$t']).strftime('%a %b %d, %Y')
       except: 
@@ -141,28 +142,32 @@ def ParseFeed(sender=None, url=''):
         summary = video['content']['$t']
       except:
         summary = video['media$group']['media$description']['$t']
-     
+
       duration = int(video['media$group']['yt$duration']['seconds']) * 1000
-      
+
       try:
         rating = float(video['gd$rating']['average']) * 2
       except:
         rating = None
-      
+
       thumb = video['media$group']['media$thumbnail'][0]['url']
-      
+
       dir.Append(Function(VideoItem(PlayVideo, title=title, subtitle=published, summary=summary, duration=duration, rating=rating, thumb=Function(Thumb, url=thumb)), video_id=video_id))
 
   if len(dir) == 0:
     return MessageContainer(L('Error'), L('This query did not return any result'))
   else:
     return dir
-   
+
+####################################################################################################
+
 def Search(sender, query=''):
   dir = MediaContainer()
   dir = ParseFeed(url=YOUTUBE_QUERY % (String.Quote(query, usePlus=False)))
   return dir
-   
+
+####################################################################################################
+
 def PlayVideo(sender, video_id):
   yt_page = HTTP.Request(YOUTUBE_VIDEO_PAGE % (video_id), cacheTime=1).content
 
@@ -189,5 +194,5 @@ def PlayVideo(sender, video_id):
         fmt = 5
 
   url = fmts_info[str(fmt)]
-  Log("  VIDEO URL --> " + url)
+#  Log("  VIDEO URL --> " + url)
   return Redirect(url)

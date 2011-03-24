@@ -193,6 +193,6 @@ def PlayVideo(sender, video_id):
       else:
         fmt = 5
 
-  url = fmts_info[str(fmt)]
+  url = (fmts_info[str(fmt)]).decode('unicode_escape')
 #  Log("  VIDEO URL --> " + url)
   return Redirect(url)

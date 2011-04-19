@@ -46,7 +46,7 @@ def Start():
 
 def VideoMainMenu():
   dir = MediaContainer(viewGroup="List")
-  dir.Append(RTMPVideoItem('rtmp://aljazeeraflashlivefs.fplive.net/aljazeeraflashlive-live', clip='aljazeera_en_veryhigh', live=True, width=680, title="Live"))
+  dir.Append(RTMPVideoItem('rtmp://aljazeeraflashlivefs.fplive.net/aljazeeraflashlive-live', clip='aljazeera_english_1', live=True, title="Live"))
   dir.Append(Function(DirectoryItem(NewsMenu, title=L('News and Clips'))))
   dir.Append(Function(DirectoryItem(ProgMenu, title=L('Programmes'))))
   dir.Append(Function(DirectoryItem(ParseFeed, title="In Arabic"), url=ARABIC_FEED))

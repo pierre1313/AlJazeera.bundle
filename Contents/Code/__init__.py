@@ -7,7 +7,6 @@ YOUTUBE_VIDEO_PAGE = 'http://www.youtube.com/watch?v=%s'
 
 YOUTUBE_QUERY = 'http://gdata.youtube.com/feeds/api/videos?q=%s&author=aljazeeraenglish&v=2&prettyprint=true&orderby=updated'
 YOUTUBE_FEEDS = 'http://gdata.youtube.com/feeds/api/videos/-/%s?v=2&author=AljazeeraEnglish&prettyprint=true&orderby=updated'
-ARABIC_FEED = 'http://gdata.youtube.com/feeds/api/users/aljazeerachannel/uploads?v=2'
 
 YOUTUBE_VIDEO_FORMATS = ['Standard', 'Medium', 'High', '720p', '1080p']
 YOUTUBE_FMT = [34, 18, 35, 22, 37]
@@ -49,7 +48,6 @@ def VideoMainMenu():
   dir.Append(RTMPVideoItem('rtmp://aljazeeraflashlivefs.fplive.net/aljazeeraflashlive-live', clip='aljazeera_english_1', live=True, title="Live"))
   dir.Append(Function(DirectoryItem(NewsMenu, title=L('News and Clips'))))
   dir.Append(Function(DirectoryItem(ProgMenu, title=L('Programmes'))))
-  dir.Append(Function(DirectoryItem(ParseFeed, title="In Arabic"), url=ARABIC_FEED))
   dir.Append(Function(InputDirectoryItem(Search, title="Search ...", prompt="Search", thumb=R(SEARCH))))
   return dir
 
